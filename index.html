@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+
+<head>
+    <script src="https://www.unpkg.com/opensheetmusicdisplay@0.8.6/build/opensheetmusicdisplay.min.js"></script>
+    <script>
+
+        var notesOn = new Set(); // keeps track of all notes that are currently being pushed
+        var openSheetMusicDisplay; // global object for opensheetmusicdisplay for easy access in the code
+        var wrongnotes = 0; // counter of the errors per exercise
+        var exercisesPointer = -1; // keeps track at which exercise we are in the exercises array
+        var exercises = [ // array of all exercises that exist
+                "Fur_Elise.musicxml",
+                "singlenote/C4.xml",
+                "singlenote/D4.xml",
+                "singlenote/E4.xml",
+                "singlenote/F4.xml",
+                "singlenote/G4.xml",
+                "singlenote/A4.xml",
+                "singlenote/B4.xml",
+                "singlenote/C5.xml",
+                "singlenote/D5.xml",
+                "singlenote/E5.xml",
+                "singlenote/F5.xml",
+                "singlenote/G5.xml",
+                "singlenote/A5.xml",
+                "singlenote/B5.xml",
+                "singlenote/C6.xml",
+        ];//.shuffle();
+
+        window.addEventListener('load', onLoad);
+
+        function onLoad() {
+
+            if (!navigator.requestMIDIAccess) { alert('WebMIDI is not supported in this browser.'); return; }
+
+            // obtain midi streams
+            console.log('WebMIDI is supported in this browser.');
+            navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
+
+            // initialize OSMD
+            openSheetMusicDisplay = new opensheetmusicdisplay.OpenSheetMusicDisplay("osmdContainer");
+            // https://opensheetmusicdisplay.github.io/classdoc/interfaces/iosmdoptions.html
+            openSheetMusicDisplay.setOptions({
+                backend: "svg",
+                drawTitle: false,
+                drawingParameters: "compact", // don't display title, composer etc.
+                drawPartNames: false,
+            });
+
+            nextExercise();
+
+        }
+
+        async function nextExercise() {
+
+            // increase the pointer to the next exercise & get the exercise url
+            exercisesPointer++;
+            if (exercisesPointer>=exercises.length) { exercisesPointer = 0; }
+            var exerciseUrl = exercises[exercisesPointer];
+
+            // reset the expected notes array and counter for wrong notes
+            expectedNotes = [];
+            wrongnotes = 0;
+
+            // show it on the screen
+            await openSheetMusicDisplay.load(exerciseUrl);
+            openSheetMusicDisplay.render();
+            openSheetMusicDisplay.cursor.show();
+            
+        }
+
+        function onNoteOn(halftone, allnotes) {
+
+            //console.log("onNoteOn", halftone, allnotes);
+            
+            // is this an expected note?
+            var expectedNotes = openSheetMusicDisplay.cursor.NotesUnderCursor().filter(note => !note.isRestFlag).map(note => note.pitch.halfTone + 12); // i don't know why we are 12 too low ... 
+            var expectedNotesNames = expectedNotes.map(note => getNoteNameFromHalftone(note));
+
+            // WRONG NOTE
+            if (!expectedNotes.includes(halftone)) { // a wrong note was played, keep track of error count
+                console.log(`Wrong note ${getNoteNameFromHalftone(halftone)}. Expecting notes ${expectedNotesNames}`);
+                openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, '#ff0000')
+                wrongnotes++;
+            } else { 
+            // CORRECT NOTE, but are we playing ALL expected notes?
+                if (arrayIncludedInArray(expectedNotes,allnotes)) { // you can be playing notes too much, I needed to add this for legato playing
+                    console.log(`You've got all the right notes for this beat, moving on :). You have ${wrongnotes} wrong notes so far.`);
+                    openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, '#00ff00');
+                    openSheetMusicDisplay.cursor.next(); // move the cursor ahead
+                } else {
+                    console.log(`Correct note ${getNoteNameFromHalftone(halftone)} but there's more. Expecting notes ${expectedNotesNames}`);
+                    openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, 'orange');
+
+                };
+            }
+
+            return;
+            // are we at the end of the song?
+            openSheetMusicDisplay.cursor.hide();
+            //alert(`Well done! You had ${wrongnotes} errors.`);
+            setTimeout(() => nextExercise(),1000);
+
+        }
+
+        // Received access to the midi input
+        function onMIDISuccess(midiAccess) {
+            for (var input of midiAccess.inputs.values()) {
+                input.onmidimessage = onMIDIMessage;
+            }
+        }
+
+        function onMIDIFailure() {
+            console.error('Error: Could not access MIDI devices. Connect a device and refresh to try again.');
+        }
+
+        function onMIDIMessage(message) {
+
+            //console.log("onMIDIMessage", message);
+
+            var command = message.data[0];
+            var halftone = message.data[1];
+            var velocity = message.data[2];
+
+            switch (command) {
+                case 128: // noteOff
+                    notesOn.delete(halftone);
+                    // if (onNoteOff) { onNoteOff(halftone,notesOn); }
+                    break;
+                case 144: // noteOn
+                    notesOn.add(halftone);
+                    onNoteOn(halftone,[...notesOn]);
+                    break;
+            }
+        }
+
+        function getNoteNameFromHalftone(noteNum) {
+            var notes = "C C#D D#E F F#G G#A A#B ";
+            var octave;
+            var note;
+
+            octave = Math.floor(noteNum / 12 - 1);
+            note = notes.substring((noteNum % 12) * 2, (noteNum % 12) * 2 + 2).trim();
+
+            return note + octave;
+        }
+
+        Object.defineProperty(Array.prototype, 'shuffle', {
+            value: function() {
+                for (let i = this.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this[i], this[j]] = [this[j], this[i]];
+                }
+                return this;
+            }
+        });
+
+        /** https://stackoverflow.com/questions/6229197/how-to-know-if-two-arrays-have-the-same-values/55614659#55614659
+        * Check whether arrays (and sets) contain the same elements (in any order)
+        * assumes elements are primitive types
+        * @param  {} a1 is an array
+        * @param  {} a2 is an array
+        */
+        function areArraysEqualSets(a1, a2) {
+            const superSet = {};
+            for (const i of a1) {
+                const e = i + typeof i;
+                superSet[e] = 1;
+            }
+
+            for (const i of a2) {
+                const e = i + typeof i;
+                if (!superSet[e]) { return false; }
+                superSet[e] = 2;
+            }
+
+            for (let e in superSet) {
+                if (superSet[e] === 1) { return false; }
+            }
+
+            return true;
+        }
+
+        // Checks if all elements from the subset are present in the parent array
+        function arrayIncludedInArray(subset,parent) {
+            for (const i of subset) {
+                if (!parent.includes(i)) { return false; }
+            }
+            return true;
+        }
+
+    </script>
+</head>
+
+<body>
+
+    <div id="osmdContainer"/>
+    
+</body>
+
