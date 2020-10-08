@@ -9,7 +9,6 @@
         var wrongnotes = 0; // counter of the errors per exercise
         var exercisesPointer = -1; // keeps track at which exercise we are in the exercises array
         var exercises = [ // array of all exercises that exist
-                "Fur_Elise.musicxml",
                 "singlenote/C4.xml",
                 "singlenote/D4.xml",
                 "singlenote/E4.xml",
@@ -25,7 +24,10 @@
                 "singlenote/A5.xml",
                 "singlenote/B5.xml",
                 "singlenote/C6.xml",
-        ];//.shuffle();
+        ];
+        var fullExercises = [
+            "fullsongs/Fur_Elise.musicxml",
+        ]
 
         window.addEventListener('load', onLoad);
 
@@ -46,6 +48,8 @@
                 drawingParameters: "compact", // don't display title, composer etc.
                 drawPartNames: false,
             });
+
+            exercises.shuffle();
 
             nextExercise();
 
@@ -86,9 +90,7 @@
             // CORRECT NOTE, but are we playing ALL expected notes?
                 if (arrayIncludedInArray(expectedNotes,playedNotes)) { // you can be playing notes too much, I needed to add this for legato playing
                     console.log(`You've got all the right notes for this beat, moving on :). You have ${wrongnotes} wrong notes so far.`);
-                    openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, 'green');
-                    openSheetMusicDisplay.cursor.next(); // move the cursor ahead
-                    checkForRests();
+                    moveCursor(playedNotes);
                 } else {
                     console.log(`Correct note ${getNoteNameFromHalftone(halftone)} but there's more. Expecting notes ${expectedNotesNames}`);
                     openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, 'orange');
@@ -97,11 +99,16 @@
             }
 
             return;
-            // are we at the end of the song?
-            openSheetMusicDisplay.cursor.hide();
-            //alert(`Well done! You had ${wrongnotes} errors.`);
-            setTimeout(() => nextExercise(),1000);
 
+
+        }
+
+        // Invoked when the exercise is finished
+        function finished() {
+            // we are at the end of the song
+            //openSheetMusicDisplay.cursor.hide();
+            console.log(`Well done! You had ${wrongnotes} errors.`);
+            setTimeout(() => nextExercise(),1000);
         }
 
         // invoked when a note is released. This is necessary to check rests
@@ -115,10 +122,20 @@
             var expectedNotes = openSheetMusicDisplay.cursor.NotesUnderCursor().filter(note => !note.isRestFlag);
             if ((!playedNotes || playedNotes.length == 0) && (!expectedNotes || expectedNotes.length == 0)) {
                 console.log("Only rests ... moving on");
-                openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, 'green');
+                moveCursor(playedNotes);
+            }
+        }
+
+        // moving to the next notes
+        function moveCursor(playedNotes) {
+            openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, 'green');
+            if (!openSheetMusicDisplay.cursor.Iterator.endReached) {
                 openSheetMusicDisplay.cursor.next(); // move the cursor ahead
                 checkForRests(playedNotes); // rest after rest ?
+            } else {
+                finished();
             }
+
         }
 
         // Received access to the midi input
