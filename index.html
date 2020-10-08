@@ -30,6 +30,12 @@
                 "singlenote/A5.xml",
                 "singlenote/B5.xml",
                 "singlenote/C6.xml",
+                // CHORDS
+                "chords/C4M.xml",
+                // BROKEN CHORDS
+                "brokenchords/C4M.xml",
+
+
         ];
         var fullExercises = [
             "fullsongs/Fur_Elise.musicxml",
@@ -55,16 +61,21 @@
                 drawPartNames: false,
             });
 
-            exercises.shuffle();
+            // you can provide a comme-seperated list of exercises in the url hash
+            if (window.location.hash.length > 0) {
+                exercises = window.location.hash.substr(1).split(',');
+            }
 
+            exercises.shuffle();
             nextExercise();
+            
 
         }
 
         async function nextExercise() {
 
-            // increase the pointer to the next exercise & get the exercise url
-            var exerciseUrl = exercises[Math.floor(Math.random() * exercises.length)];
+            exerciseUrl = exercises[Math.floor(Math.random() * exercises.length)];
+
             console.log("Starting", exerciseUrl);
 
             // reset the expected notes array and counter for wrong notes
