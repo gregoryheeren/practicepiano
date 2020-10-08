@@ -1,6 +1,6 @@
 class MIDIPianoListener {
 
-    constructor(onKeyDown, onKeyUp) {
+    constructor() {
         
         // check capability of browser
         if (!navigator.requestMIDIAccess) { throw new Error('WebMIDI is not supported in this browser.'); }
@@ -8,14 +8,17 @@ class MIDIPianoListener {
 
         // intial setup
         this.notesOn = new Set(); // keeps track of all notes that are currently being pushed
-        this.onKeyDown = onKeyDown;
-        this.onKeyUp = onKeyUp;
+
 
     }
 
-    async listen() {
-        // obtain midi streams
+    async listen(onKeyDown, onKeyUp) {
         
+        // event handlers
+        this.onKeyDown = onKeyDown;
+        this.onKeyUp = onKeyUp;
+
+        // obtain midi streams
         try {
             var midiAccess = await navigator.requestMIDIAccess();
             for (var input of midiAccess.inputs.values()) {

@@ -3,15 +3,9 @@
 <head>
     <script src="https://www.unpkg.com/opensheetmusicdisplay@0.8.6/build/opensheetmusicdisplay.min.js"></script>
     <script src="/js/midipianolistener.js"></script>
+    <script src="/js/pianoexercise.js"></script>
 
     <script>
-
-        const COLORS = {
-            "todo": "gray",
-            "wrong": "red",
-            "partial": "orange",
-            "correct": "lightgreen"
-        }
 
         var openSheetMusicDisplay; // global object for opensheetmusicdisplay for easy access in the code
         var wrongnotes = 0; // counter of the errors per exercise
@@ -46,9 +40,6 @@
 
         function onLoad() {
 
-            var mpl = new MIDIPianoListener(onKeyDown,onKeyUp);
-            mpl.listen();
-
             // initialize OSMD
             openSheetMusicDisplay = new opensheetmusicdisplay.OpenSheetMusicDisplay("osmdContainer");
             // https://opensheetmusicdisplay.github.io/classdoc/interfaces/iosmdoptions.html
@@ -75,92 +66,17 @@
             exerciseUrl = exercises[Math.floor(Math.random() * exercises.length)];
 
             console.log("Starting", exerciseUrl);
-
-            // reset the expected notes array and counter for wrong notes
-            expectedNotes = [];
-            wrongnotes = 0;
-
-            // show it on the screen
-            await openSheetMusicDisplay.load(exerciseUrl);
-            openSheetMusicDisplay.render();
-            openSheetMusicDisplay.cursor.show();
-            openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, COLORS.todo)
+            var pe = new PianoExercise(exerciseUrl,openSheetMusicDisplay);
+            pe.start(onFinished);
             
         }
 
-        function onKeyDown(halftone, playedNotes) {
-
-            //console.log("onNoteOn", halftone, allnotes);
-            
-            // is this an expected note?
-            var expectedNotes = openSheetMusicDisplay.cursor.NotesUnderCursor().filter(note => !note.isRestFlag).map(note => note.pitch.halfTone + 12); // i don't know why we are 12 too low ... 
-            var expectedNotesNames = expectedNotes.map(note => getNoteNameFromHalftone(note));
-
-            // WRONG NOTE
-            if (!expectedNotes.includes(halftone)) { // a wrong note was played, keep track of error count
-                console.log(`Wrong note ${getNoteNameFromHalftone(halftone)}. Expecting notes ${expectedNotesNames}`);
-                openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, COLORS.wrong)
-                wrongnotes++;
-            } else { 
-                // CORRECT NOTE, but are we playing ALL expected notes?
-                if (arrayIncludedInArray(expectedNotes,playedNotes)) { // you can be playing notes too much, I needed to add this for legato playing
-                    console.log(`You've got all the right notes for this beat, moving on :). You have ${wrongnotes} wrong notes so far.`);
-                    openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, COLORS.correct);
-                    moveCursor(playedNotes);
-                } else {
-                    console.log(`Correct note ${getNoteNameFromHalftone(halftone)} but there's more. Expecting notes ${expectedNotesNames}`);
-                    openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, COLORS.partial);
-
-                };
-            }
-
-            return;
-
+        function onFinished() {
+            console.log("next");
+            nextExercise();
         }
 
-        // Invoked when the exercise is finished
-        function finished() {
-            // we are at the end of the song
-            //openSheetMusicDisplay.cursor.hide();
-            openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, COLORS.correct);
-            console.log(`Well done! You had ${wrongnotes} errors.`);
-            setTimeout(() => nextExercise(),1000);
-        }
 
-        // invoked when a note is released. This is necessary to check rests
-        // you cannot make a mistake by releasing a note in this training
-        function onKeyUp(halftone,playedNotes) {
-            checkForRests(playedNotes);
-        }
-
-        // checks if we should move on because it's only rests and we're ... well ... resting
-        function checkForRests(playedNotes) {
-            if (openSheetMusicDisplay.cursor.Iterator.endReached) { return; }
-            var expectedNotes = openSheetMusicDisplay.cursor.NotesUnderCursor().filter(note => !note.isRestFlag);
-            if ((!playedNotes || playedNotes.length == 0) && (!expectedNotes || expectedNotes.length == 0)) {
-                console.log("Only rests ... moving on");
-                moveCursor(playedNotes);
-            }
-        }
-
-        // moving to the next notes
-        function moveCursor(playedNotes) {
-            openSheetMusicDisplay.cursor.next(); // move the cursor ahead
-            openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, COLORS.todo);
-            if (openSheetMusicDisplay.cursor.Iterator.endReached) { finished(); }
-            else { checkForRests(playedNotes); } // rest after rest ?
-        }
-
-        function getNoteNameFromHalftone(noteNum) {
-            var notes = "C C#D D#E F F#G G#A A#B ";
-            var octave;
-            var note;
-
-            octave = Math.floor(noteNum / 12 - 1);
-            note = notes.substring((noteNum % 12) * 2, (noteNum % 12) * 2 + 2).trim();
-
-            return note + octave;
-        }
 
         Object.defineProperty(Array.prototype, 'shuffle', {
             value: function() {
@@ -171,40 +87,6 @@
                 return this;
             }
         });
-
-        /** https://stackoverflow.com/questions/6229197/how-to-know-if-two-arrays-have-the-same-values/55614659#55614659
-        * Check whether arrays (and sets) contain the same elements (in any order)
-        * assumes elements are primitive types
-        * @param  {} a1 is an array
-        * @param  {} a2 is an array
-        */
-        function areArraysEqualSets(a1, a2) {
-            const superSet = {};
-            for (const i of a1) {
-                const e = i + typeof i;
-                superSet[e] = 1;
-            }
-
-            for (const i of a2) {
-                const e = i + typeof i;
-                if (!superSet[e]) { return false; }
-                superSet[e] = 2;
-            }
-
-            for (let e in superSet) {
-                if (superSet[e] === 1) { return false; }
-            }
-
-            return true;
-        }
-
-        // Checks if all elements from the subset are present in the parent array
-        function arrayIncludedInArray(subset,parent) {
-            for (const i of subset) {
-                if (!parent.includes(i)) { return false; }
-            }
-            return true;
-        }
 
     </script>
 </head>
