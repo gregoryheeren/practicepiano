@@ -2,6 +2,8 @@
 
 <head>
     <script src="https://www.unpkg.com/opensheetmusicdisplay@0.8.6/build/opensheetmusicdisplay.min.js"></script>
+    <script src="/js/midipianolistener.js"></script>
+
     <script>
 
         const COLORS = {
@@ -11,7 +13,6 @@
             "correct": "lightgreen"
         }
 
-        var notesOn = new Set(); // keeps track of all notes that are currently being pushed
         var openSheetMusicDisplay; // global object for opensheetmusicdisplay for easy access in the code
         var wrongnotes = 0; // counter of the errors per exercise
         var exercises = [ // array of all exercises that exist
@@ -45,11 +46,8 @@
 
         function onLoad() {
 
-            if (!navigator.requestMIDIAccess) { alert('WebMIDI is not supported in this browser.'); return; }
-
-            // obtain midi streams
-            console.log('WebMIDI is supported in this browser.');
-            navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
+            var mpl = new MIDIPianoListener(onKeyDown,onKeyUp);
+            mpl.listen();
 
             // initialize OSMD
             openSheetMusicDisplay = new opensheetmusicdisplay.OpenSheetMusicDisplay("osmdContainer");
@@ -90,7 +88,7 @@
             
         }
 
-        function onNoteOn(halftone, playedNotes) {
+        function onKeyDown(halftone, playedNotes) {
 
             //console.log("onNoteOn", halftone, allnotes);
             
@@ -131,7 +129,7 @@
 
         // invoked when a note is released. This is necessary to check rests
         // you cannot make a mistake by releasing a note in this training
-        function onNoteOff(halftone,playedNotes) {
+        function onKeyUp(halftone,playedNotes) {
             checkForRests(playedNotes);
         }
 
@@ -151,37 +149,6 @@
             openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * openSheetMusicDisplay.zoom, COLORS.todo);
             if (openSheetMusicDisplay.cursor.Iterator.endReached) { finished(); }
             else { checkForRests(playedNotes); } // rest after rest ?
-        }
-
-        // Received access to the midi input
-        function onMIDISuccess(midiAccess) {
-            for (var input of midiAccess.inputs.values()) {
-                input.onmidimessage = onMIDIMessage;
-            }
-        }
-
-        function onMIDIFailure() {
-            console.error('Error: Could not access MIDI devices. Connect a device and refresh to try again.');
-        }
-
-        function onMIDIMessage(message) {
-
-            //console.log("onMIDIMessage", message);
-
-            var command = message.data[0];
-            var halftone = message.data[1];
-            var velocity = message.data[2];
-
-            switch (command) {
-                case 128: // noteOff
-                    notesOn.delete(halftone);
-                    onNoteOff(halftone,[...notesOn]);
-                    break;
-                case 144: // noteOn
-                    notesOn.add(halftone);
-                    onNoteOn(halftone,[...notesOn]);
-                    break;
-            }
         }
 
         function getNoteNameFromHalftone(noteNum) {
