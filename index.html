@@ -4,12 +4,13 @@
     <script src="https://www.unpkg.com/opensheetmusicdisplay@0.8.6/build/opensheetmusicdisplay.min.js"></script>
     <script src="/js/midipianolistener.js"></script>
     <script src="/js/pianoexercise.js"></script>
+    <script src="/js/trainingsession.js"></script>
 
     <script>
 
         var openSheetMusicDisplay; // global object for opensheetmusicdisplay for easy access in the code
         var wrongnotes = 0; // counter of the errors per exercise
-        var exercises = [ // array of all exercises that exist
+        var exerciseUrls = [ // array of all exercises that exist
                 "singlenote/C4.xml",
                 "singlenote/D4.xml",
                 "singlenote/E4.xml",
@@ -32,7 +33,7 @@
 
 
         ];
-        var fullExercises = [
+        var fullExerciseUrls = [
             "fullsongs/Fur_Elise.musicxml",
         ]
 
@@ -52,31 +53,22 @@
 
             // you can provide a comme-seperated list of exercises in the url hash
             if (window.location.hash.length > 0) {
-                exercises = window.location.hash.substr(1).split(',');
+                exerciseUrls = window.location.hash.substr(1).split(',');
             }
 
-            exercises.shuffle();
-            nextExercise();
+            exerciseUrls.shuffle();
+
+            var excerciseObjects = exerciseUrls.map(ex => new PianoExercise(ex,openSheetMusicDisplay));
             
+            var training = new TrainingSession(excerciseObjects);
+            training.start(onTrainingFinished);
+
 
         }
 
-        async function nextExercise() {
-
-            exerciseUrl = exercises[Math.floor(Math.random() * exercises.length)];
-
-            console.log("Starting", exerciseUrl);
-            var pe = new PianoExercise(exerciseUrl,openSheetMusicDisplay);
-            pe.start(onFinished);
-            
+        function onTrainingFinished() {
+            console.log("Training finished");
         }
-
-        function onFinished() {
-            console.log("next");
-            nextExercise();
-        }
-
-
 
         Object.defineProperty(Array.prototype, 'shuffle', {
             value: function() {

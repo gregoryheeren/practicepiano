@@ -2,9 +2,10 @@ class PianoExercise {
 
     constructor(musicxmlUrl, openSheetMusicDisplay) {
 
+        this.ID = musicxmlUrl;
         this.openSheetMusicDisplay = openSheetMusicDisplay;
         this.musicxmlUrl = musicxmlUrl;
-        this.totalnotes = 0; // the total amount of notes you played
+        this.totalNotesPlayed = 0; // the total amount of notes you played
         this.errors = 0; // the amount of errors you played
         this.COLORS = {
             "todo": "gray",
@@ -12,7 +13,7 @@ class PianoExercise {
             "partial": "orange",
             "correct": "lightgreen"
         }
-        
+        this.state = "ready"; //  ready, started, finished
 
     }
 
@@ -20,33 +21,59 @@ class PianoExercise {
 
         this.onFinished = onfinished;
 
+        // listening to midi keys
         var mpl = new MIDIPianoListener();
-        mpl.listen((halftone,playedNotes) => this.onKeyDown(halftone,playedNotes),(halftone,playedNotes) => this.onKeyUp(halftone,playedNotes));
+        mpl.listen(
+            (halftone,playedNotes) => this.onKeyDown(halftone,playedNotes),
+            (halftone,playedNotes) => this.onKeyUp(halftone,playedNotes)
+        );
+
+        // listening to keyboard keys (for debugging)
+        this.keyboardKeyDownListener = document.addEventListener('keydown', (e) => { this.onKeyDown(0,[],true);  })
 
         // show it on the screen
-        await this.openSheetMusicDisplay.load(exerciseUrl);
+        await this.openSheetMusicDisplay.load(this.musicxmlUrl);
         this.openSheetMusicDisplay.render();
         this.openSheetMusicDisplay.cursor.show();
         this.openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * this.openSheetMusicDisplay.zoom, this.COLORS.todo)
+
+        // update the state
+        this.state = "started";
         
     } 
 
-    onKeyDown(halftone, playedNotes) {
+    // score = correct notes played / total notes played
+    get score() {
+        return (this.totalNotesPlayed - this.errors) / this.totalNotesPlayed;
+    }
 
-        //console.log("onNoteOn", halftone, allnotes);
+    /**
+     * 
+     * @param {*} halftone Contains the note that has just been hit
+     * @param {*} playedNotes Contains all notes currently being hit
+     * @param {*} alwaysCorrect Used for debugging when no midi piano is available
+     */
+    onKeyDown(halftone, playedNotes, alwaysCorrect) {
+        
+        //console.log("onKeyDown", halftone, allnotes);
+
+        if (this.state != "started") { return; }
+        
+        // increase the counter of total notes played
+        this.totalNotesPlayed++;
         
         // is this an expected note?
         var expectedNotes = this.openSheetMusicDisplay.cursor.NotesUnderCursor().filter(note => !note.isRestFlag).map(note => note.pitch.halfTone + 12); // i don't know why we are 12 too low ... 
         var expectedNotesNames = expectedNotes.map(note => this.getNoteNameFromHalftone(note));
 
         // WRONG NOTE
-        if (!expectedNotes.includes(halftone)) { // a wrong note was played, keep track of error count
+        if (!expectedNotes.includes(halftone) && !alwaysCorrect) { // a wrong note was played, keep track of error count
             console.log(`Wrong note ${this.getNoteNameFromHalftone(halftone)}. Expecting notes ${expectedNotesNames}`);
             this.openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * this.openSheetMusicDisplay.zoom, this.COLORS.wrong)
             this.errors++;
         } else { 
             // CORRECT NOTE, but are we playing ALL expected notes?
-            if (this.arrayIncludedInArray(expectedNotes,playedNotes)) { // you can be playing notes too much, I needed to add this for legato playing
+            if (this.arrayIncludedInArray(expectedNotes,playedNotes) || alwaysCorrect) { // you can be playing notes too much, I needed to add this for legato playing
                 console.log(`You've got all the right notes for this beat, moving on :). You have ${this.errors} wrong notes so far.`);
                 this.openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * this.openSheetMusicDisplay.zoom, this.COLORS.correct);
                 this.moveCursor(playedNotes);
@@ -64,13 +91,20 @@ class PianoExercise {
     // Invoked when the exercise is finished
     finished() {
         this.openSheetMusicDisplay.cursor.updateStyle(3 * 10.0 * this.openSheetMusicDisplay.zoom, this.COLORS.correct);
-        console.log(`Well done! You had ${this.errors} errors.`);
-        if (this.onFinished) { this.onFinished; }
+        console.log(`Well done! You reached a score of ${this.score} on ${this.ID}`);
+        
+        // update the state
+        this.state = "finished";
+        
+        if (this.onFinished) { this.onFinished(this); }
     }
 
     // invoked when a note is released. This is necessary to check rests
     // you cannot make a mistake by releasing a note in this training (i.e. we don't check the notes you're playing when releasing a key)
      onKeyUp(halftone,playedNotes) {
+
+        if (this.state != "started") { return; }
+
         this.checkForRests(playedNotes);
     }
 

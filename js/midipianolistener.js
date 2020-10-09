@@ -4,7 +4,7 @@ class MIDIPianoListener {
         
         // check capability of browser
         if (!navigator.requestMIDIAccess) { throw new Error('WebMIDI is not supported in this browser.'); }
-        console.log('WebMIDI is supported in this browser.');
+        //console.log('WebMIDI is supported in this browser.');
 
         // intial setup
         this.notesOn = new Set(); // keeps track of all notes that are currently being pushed
@@ -28,6 +28,12 @@ class MIDIPianoListener {
             throw err;
             //throw new Error("Error: Could not access MIDI devices. Connect a device and refresh to try again.");
         }
+    }
+
+    // removes the listeners
+    stopListening() {
+        this.onKeyUp = null;
+        this.onKeyDown = null;
     }
 
     onMIDIMessage(message) {
