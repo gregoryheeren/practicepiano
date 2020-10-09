@@ -52,20 +52,17 @@
             });
 
             // you can provide a comme-seperated list of exercises in the url hash
-            if (window.location.hash.length > 0) {
-                exerciseUrls = window.location.hash.substr(1).split(',');
-            }
+            if (window.location.hash.length > 0) { exerciseUrls = window.location.hash.substr(1).split(','); }
 
+            // shuffle the exercises
             exerciseUrls.shuffle();
 
+            // create an arrat of exercise objects to pass to the training session
             var excerciseObjects = exerciseUrls.map(ex => new PianoExercise(ex,openSheetMusicDisplay));
             
+            // create & start the training
             var training = new TrainingSession(excerciseObjects);
-            training.start(
-                onExerciseFinished,    
-                onTrainingFinished
-            );
-
+            training.start(onExerciseFinished, onTrainingFinished);
 
         }
 
@@ -77,6 +74,7 @@
             console.log("Training finished with a score of ", training.score);
         }
 
+        // helper function to shuffle an array
         Object.defineProperty(Array.prototype, 'shuffle', {
             value: function() {
                 for (let i = this.length - 1; i > 0; i--) {
