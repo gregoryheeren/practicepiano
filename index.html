@@ -61,13 +61,20 @@
             var excerciseObjects = exerciseUrls.map(ex => new PianoExercise(ex,openSheetMusicDisplay));
             
             var training = new TrainingSession(excerciseObjects);
-            training.start(onTrainingFinished);
+            training.start(
+                onExerciseFinished,    
+                onTrainingFinished
+            );
 
 
         }
 
-        function onTrainingFinished() {
-            console.log("Training finished");
+        function onExerciseFinished(exercise) {
+            console.log("Exercise finished", exercise);
+        }
+
+        function onTrainingFinished(training) {
+            console.log("Training finished with a score of ", training.score);
         }
 
         Object.defineProperty(Array.prototype, 'shuffle', {

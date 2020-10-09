@@ -1,3 +1,7 @@
+/**
+ * A training session consists of a set of exercises that you go through one
+ * after the other. An overall result of the training session is kept
+ */
 class TrainingSession {
 
     /**
@@ -12,10 +16,11 @@ class TrainingSession {
 
     }
 
-    start(onTrainingFinished) {
+    start(onExerciseFinishedCallback, onTrainingFinishedCallback) {
 
         console.log("Starting training session with exercises", this.exercises);
-        this.onFinished = onTrainingFinished;
+        this.onTrainingFinishedCallback = onTrainingFinishedCallback;
+        this.onExerciseFinishedCallback = onExerciseFinishedCallback;
         this.nextExercise();
         
     } 
@@ -23,16 +28,29 @@ class TrainingSession {
     nextExercise() {
 
         this.exercisePointer++;
+        if (this.exercisePointer == this.exercises.length) { this.onTrainingFinished(); return; }
         this.exercises[this.exercisePointer].start((ex) => this.onExerciseFinished(ex));
 
     }
 
     onExerciseFinished(ex) {
 
-        console.log("onExerciseFinished",ex);
-        this.results[ex.ID] = ex.score;
+        this.results.set(ex.ID, ex.score);
+        if (this.onExerciseFinishedCallback) { this.onExerciseFinishedCallback(ex); }
         this.nextExercise();
 
+    }
+
+    onTrainingFinished() {
+        if (this.onTrainingFinishedCallback) { this.onTrainingFinishedCallback(this); }
+    }
+
+    get score() {
+        var sum = 0;
+        for (let value of this.results.values()) {
+            sum += value
+        }
+        return sum / this.results.size;
     }
 
 }
