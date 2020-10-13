@@ -3,87 +3,73 @@
 <head>
     <script src="https://www.unpkg.com/opensheetmusicdisplay@0.8.6/build/opensheetmusicdisplay.min.js"></script>
     <script src="/js/midipianolistener.js"></script>
-    <script src="/js/pianoexercise.js"></script>
+    <script src="/js/pianoexerciser.js"></script>
     <script src="/js/trainingsession.js"></script>
+    <script src="/js/milestones.js"></script>
+    <script src="/js/recommender.js"></script>
 
     <script>
-
-        var openSheetMusicDisplay; // global object for opensheetmusicdisplay for easy access in the code
-        var wrongnotes = 0; // counter of the errors per exercise
-        var exerciseUrls = [ // array of all exercises that exist
-                "singlenote/C4.xml",
-                "singlenote/D4.xml",
-                "singlenote/E4.xml",
-                "singlenote/F4.xml",
-                "singlenote/G4.xml",
-                "singlenote/A4.xml",
-                "singlenote/B4.xml",
-                "singlenote/C5.xml",
-                "singlenote/D5.xml",
-                "singlenote/E5.xml",
-                "singlenote/F5.xml",
-                "singlenote/G5.xml",
-                "singlenote/A5.xml",
-                "singlenote/B5.xml",
-                "singlenote/C6.xml",
-                // CHORDS
-                "chords/C4M.xml",
-                // BROKEN CHORDS
-                "brokenchords/C4M.xml",
-
-
-        ];
-        var fullExerciseUrls = [
-            "fullsongs/Fur_Elise.musicxml",
-        ]
 
         window.addEventListener('load', onLoad);
 
         function onLoad() {
 
-            // initialize OSMD
-            openSheetMusicDisplay = new opensheetmusicdisplay.OpenSheetMusicDisplay("osmdContainer");
-            // https://opensheetmusicdisplay.github.io/classdoc/interfaces/iosmdoptions.html
-            openSheetMusicDisplay.setOptions({
-                backend: "svg",
-                drawTitle: false,
-                drawingParameters: "compact", // don't display title, composer etc.
-                drawPartNames: false,
-            });
-
             // you can provide a comme-seperated list of exercises in the url hash
             if (window.location.hash.length > 0) { exerciseUrls = window.location.hash.substr(1).split(','); }
 
-            // shuffle the exercises
-            exerciseUrls.shuffle();
+            // fetch, shuffle the exercise URLS and create an array of exercises
+            var exerciseUrls = milestones[0].exerciseUrls.map(url => milestones[0].folder + '/' + url);
 
-            // create an arrat of exercise objects to pass to the training session
-            var excerciseObjects = exerciseUrls.map(ex => new PianoExercise(ex,openSheetMusicDisplay));
-            
+            // initialize the user
+            initUser();
+
             // create & start the training
-            var training = new TrainingSession(excerciseObjects);
-            training.start(onExerciseFinished, onTrainingFinished);
+            var training = new TrainingSession(exerciseUrls,onExerciseFinished, onTrainingFinished);
+            training.start();
 
+        }
+
+        function initUser() {
+            // generate a unique ID for this user
+            if (!localStorage.getItem("userid")) { localStorage.setItem("userid", uuidv4()); }
+            // ready the array of results
+            if (!localStorage.getItem("results")) { localStorage.setObject("results", []); }
         }
 
         function onExerciseFinished(exercise) {
             console.log("Exercise finished", exercise);
+            // store the result in local storage
+            var results = localStorage.getObject("results");
+            results.push({
+                "id": exercise.ID,
+                "dts": new Date().toISOString(),
+                "score": exercise.score
+            });
+            localStorage.setObject("results", results)
         }
 
         function onTrainingFinished(training) {
             console.log("Training finished with a score of ", training.score);
         }
 
-        // helper function to shuffle an array
-        Object.defineProperty(Array.prototype, 'shuffle', {
-            value: function() {
-                for (let i = this.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [this[i], this[j]] = [this[j], this[i]];
-                }
-                return this;
-            }
-        });
+        // https://stackoverflow.com/questions/2010892/storing-objects-in-html5-localstorage
+        Storage.prototype.setObject = function(key, value) {
+            this.setItem(key, JSON.stringify(value));
+        }
+
+        // https://stackoverflow.com/questions/2010892/storing-objects-in-html5-localstorage
+        Storage.prototype.getObject = function(key) {
+            var value = this.getItem(key);
+            return value && JSON.parse(value);
+        }
+
+        // https://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid/2117523#2117523
+        function uuidv4() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
 
     </script>
 </head>

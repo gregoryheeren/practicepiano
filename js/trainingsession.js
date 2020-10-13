@@ -6,43 +6,45 @@ class TrainingSession {
 
     /**
      * 
-     * @param {Array} exercises a list of exercise objectsn they will be ran in order
+     * @param {Array} exerciseUrls a list urls of music xml files
      */
-    constructor(exercises) {
+    constructor(exerciseUrls,onExerciseFinishedCallback, onTrainingFinishedCallback) {
 
-        this.exercises = exercises;
-        this.results = new Map(); // will contain exercise.ID = score        
-        this.exercisePointer = -1;
+        this.exerciseUrls = exerciseUrls;
+        this.results = new Map(); // will contain exercise URL = score        
+        this.pianoExerciser = new PianoExerciser((ex) => this.onExerciseFinished(ex));
+        this.onTrainingFinishedCallback = onTrainingFinishedCallback;
+        this.onExerciseFinishedCallback = onExerciseFinishedCallback;
 
     }
 
-    start(onExerciseFinishedCallback, onTrainingFinishedCallback) {
+    start() {
 
-        console.log("Starting training session with exercises", this.exercises);
-        this.onTrainingFinishedCallback = onTrainingFinishedCallback;
-        this.onExerciseFinishedCallback = onExerciseFinishedCallback;
+        console.log("Starting training session with exercises", this.exerciseUrls);
         this.nextExercise();
         
-    } 
+    }
 
     nextExercise() {
 
-        this.exercisePointer++;
-        if (this.exercisePointer == this.exercises.length) { this.onTrainingFinished(); return; }
-        this.exercises[this.exercisePointer].start((ex) => this.onExerciseFinished(ex));
+        var nextExerciseUrl = Recommender.recommend(this.results, this.exerciseUrls);
+        this.pianoExerciser.start(nextExerciseUrl);
 
     }
 
     onExerciseFinished(ex) {
 
-        this.results.set(ex.ID, ex.score);
+        this.results.set(ex.ID, {"id": ex.ID, "score": ex.score, "dts": new Date().toISOString() });
         if (this.onExerciseFinishedCallback) { this.onExerciseFinishedCallback(ex); }
         this.nextExercise();
 
     }
 
+    // currently this is never invoked ... training is never over ;)
     onTrainingFinished() {
+
         if (this.onTrainingFinishedCallback) { this.onTrainingFinishedCallback(this); }
+
     }
 
     get score() {

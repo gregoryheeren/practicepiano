@@ -1,12 +1,21 @@
-class PianoExercise {
+/**
+ * Supposed to be a singleton class, however technically not enforced to be one
+ */
+class PianoExerciser {
 
-    constructor(musicxmlUrl, openSheetMusicDisplay) {
+    constructor(onFinished) {
 
-        this.ID = musicxmlUrl;
-        this.openSheetMusicDisplay = openSheetMusicDisplay;
-        this.musicxmlUrl = musicxmlUrl;
-        this.totalNotesPlayed = 0; // the total amount of notes you played
-        this.errors = 0; // the amount of errors you played
+        // initialize OSMD
+        this.openSheetMusicDisplay = new opensheetmusicdisplay.OpenSheetMusicDisplay("osmdContainer");
+        // https://opensheetmusicdisplay.github.io/classdoc/interfaces/iosmdoptions.html
+        this.openSheetMusicDisplay.setOptions({
+            backend: "svg",
+            drawTitle: false,
+            drawingParameters: "compact", // don't display title, composer etc.
+            drawPartNames: false,
+        });
+
+        this.onFinished = onFinished;
         this.COLORS = {
             "todo": "gray",
             "wrong": "red",
@@ -17,9 +26,12 @@ class PianoExercise {
 
     }
 
-    async start(onfinished) {
+    async start(musicxmlUrl) {
 
-        this.onFinished = onfinished;
+        this.ID = musicxmlUrl;
+        this.musicxmlUrl = musicxmlUrl;
+        this.totalNotesPlayed = 0; // the total amount of notes you played
+        this.errors = 0; // the amount of errors you played
 
         // listening to midi keys
         var mpl = new MIDIPianoListener();
